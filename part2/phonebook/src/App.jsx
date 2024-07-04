@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import personService from './services/persons'
 
 const Filter = (props) => {
 
@@ -24,16 +24,28 @@ const Filter = (props) => {
 const AddContact = (props) => {
 
   const {newName, newNumber, persons, setPersons, handleNameChange, handleNumberChange} = props
+  const personExists = name => persons.find(p => p.name === name)
+  const updateNumber = () => {
+    const currentPerson = personExists(newName)
+    const updatedPerson = {...currentPerson, number: newNumber}
+    personService.update(currentPerson.id, updatedPerson)
+    .then(updatedPerson => {
+      setPersons(persons.map(person => person.id === currentPerson.id ? updatedPerson : person))
+    })
+  }
 
   const addPerson = (event) => {
     event.preventDefault()
     if (personExists(newName)) {
-      alert(`${newName} is already added to phonebook`)
+      window.confirm(`${newName} is already added to phonebook, replace the old number with a new one?`) &&
+        updateNumber()
     } else {
-      setPersons(persons.concat({name: newName, number: newNumber}))
+      personService.create({name: newName, number: newNumber})
+      .then(person => {
+        setPersons(persons.concat({name: person.name, number: person.number, id: person.id}))
+      })
     }
   }
-  const personExists = name => persons.find(p => p.name === name)
 
 
   return (
@@ -54,17 +66,23 @@ const AddContact = (props) => {
   )
 }
 
-const ContactList = ({persons, filteredContacts, newFilter}) => {
-  let contactsToRender = []
-    if (newFilter === "") {
-      contactsToRender = persons
-    } else {
-      contactsToRender = filteredContacts
+const ContactList = ({persons, filteredContacts, newFilter, setPersons}) => {
+  const contactsToRender = newFilter === "" ? persons : filteredContacts
+
+  const handleClick = (id, name) => () => {
+    if (window.confirm(`Are you sure you want to say goodbye to your friend ${name}?`)) {
+      personService.remove(id)
+      .then(removedPerson => {
+      setPersons(persons.filter(person => person.id !== removedPerson.id))
+      })
     }
+  }
+
   return (
     <>
       <h2>Numbers</h2>
-      {contactsToRender.map(person => <div key={person.name}>{person.name} {person.number}</div>)}
+      {contactsToRender.map(person =>
+        <div key={person.id}>{person.name} {person.number} <button onClick={handleClick(person.id, person.name)}>delete</button></div>)}
     </>
   )
 }
@@ -77,11 +95,10 @@ const App = () => {
   const [filteredContacts, setFilteredContacts] = useState([])
 
   useEffect(() => {
-    axios
-      .get('http://localhost:3001/persons')
-      .then(response => {
-        setPersons(response.data)
-      })
+    personService.getAll()
+    .then(people => {
+      setPersons(people)
+    })
   }, [])
 
   const handleNameChange = (event) => {
@@ -107,7 +124,8 @@ const App = () => {
                   handleNumberChange={handleNumberChange}/>
       <ContactList persons={persons}
                   filteredContacts={filteredContacts}
-                  newFilter={newFilter}/>
+                  newFilter={newFilter}
+                  setPersons={setPersons}/>
     </div>
   )
 }
