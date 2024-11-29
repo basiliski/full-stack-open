@@ -21,8 +21,8 @@ const ContactList = (props) => {
     const handleClick = (id, name) => () => {
       if (window.confirm(`Are you sure you want to say goodbye to your friend ${name}?`)) {
         personService.remove(id)
-        .then(removedPerson => {
-        setPersons(persons.filter(person => person.id !== removedPerson.id))
+        .then(() => {
+        setPersons(persons.filter(person => person.id !== id))
         })
         .catch(error => {
           setError(error)
